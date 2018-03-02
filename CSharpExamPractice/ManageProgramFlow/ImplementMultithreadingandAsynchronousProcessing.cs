@@ -93,15 +93,33 @@ namespace CSharpExamPractice.ManageProgramFlow
         }
 
 
-        //using (TPL) Parallel LINQ (PLINQ) : https://docs.microsoft.com/en-us/dotnet/standard/parallel-programming/custom-partitioners-for-plinq-and-tpl
+        // using (TPL) Parallel LINQ (PLINQ) : https://docs.microsoft.com/en-us/dotnet/standard/parallel-programming/introduction-to-plinq
         [Fact]
         public void UsingParallelLINQ()
         {
+            var items = Enumerable.Range(0, 100);
+            Func<int, bool> evenNumber = i => (i % 2) == 0; 
 
+            // opt-in to parallel execution if there is preformance gain
+            var evenNumbers = items.AsParallel().Where(evenNumber).ToArray();
+            Assert.Equal(50, evenNumbers.Length);
+
+            // by default it uses all processor power but can use less with WithDegreeOfParallelism
+            evenNumbers = items.AsParallel().Where(evenNumber).ToArray();
+            Assert.Equal(50, evenNumbers.Length);
+
+            //An AsOrdered sequence is still processed in parallel, but its results are buffered and sorted.
+            evenNumbers = items.AsParallel().AsOrdered().Where(evenNumber).ToArray();
+            Assert.Equal(50, evenNumbers.Length);
+
+            //For faster query execution when order preservation is not required and when the processing of the results can itself be parallelized, use the ForAll method
+            var query = items.AsParallel().Where(evenNumber);
+            query.ForAll(i => _output.WriteLine(i.ToString()));
         }
 
 
-        //PLINQ and the Task Parallel Library(TPL) provide default partitioners that work transparently when you write a parallel query or ForEach loop
+        // PLINQ and the Task Parallel Library(TPL) provide default partitioners that work transparently when you write a parallel query or ForEach loop
+        // https://docs.microsoft.com/en-us/dotnet/standard/parallel-programming/custom-partitioners-for-plinq-and-tpl
         [Fact]
         public void UsingParallelLINQPartitioning()
         {
