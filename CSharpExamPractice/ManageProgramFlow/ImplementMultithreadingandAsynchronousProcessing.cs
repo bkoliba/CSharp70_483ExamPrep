@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -8,9 +7,11 @@ using Xunit.Abstractions;
 using AutoFixture;
 using System.Linq;
 using System.Collections.Concurrent;
+using System.Net.Http;
 
 namespace CSharpExamPractice.ManageProgramFlow
 {
+    [Trait("Manage Program Flow", "Multitheading/asynchronous")]
     public class ImplementMultithreadingandAsynchronousProcessing
     {
         //Disclaimer these aren't unit test, they are methods demostrating program flow!
@@ -98,7 +99,7 @@ namespace CSharpExamPractice.ManageProgramFlow
         public void UsingParallelLINQ()
         {
             var items = Enumerable.Range(0, 100);
-            Func<int, bool> evenNumber = i => (i % 2) == 0; 
+            Func<int, bool> evenNumber = i => (i % 2) == 0;
 
             // opt-in to parallel execution if there is preformance gain
             var evenNumbers = items.AsParallel().Where(evenNumber).ToArray();
@@ -146,19 +147,133 @@ namespace CSharpExamPractice.ManageProgramFlow
         }
 
 
-        //using Tasks
+        //'Tasks' (Represents an asynchronous operation)
+        //Create and executing Task
+        [Fact]
+        public void CreateTasks()
+        {
+            Task t = Task.Run(() =>
+            {
+                for (int ctr = 0; ctr < 100; ctr++)
+                {
+                    _output.WriteLine(ctr.ToString());
+                }
+            });
 
+            t.Wait();
+
+            t = Task.Factory.StartNew(() =>
+            {
+                for (int ctr = 0; ctr < 100; ctr++)
+                {
+                    _output.WriteLine(ctr.ToString());
+                }
+            });
+
+            t.Wait();
+        }
+
+        [Fact]
+        public void WaitingandCheckingStatusOfATask()
+        {
+            Task t = Task.Run(() => Thread.Sleep(2000));
+            _output.WriteLine(t.Status.ToString());
+            t.Wait();
+            _output.WriteLine(t.Status.ToString());
+
+            t = Task.Run(() => Thread.Sleep(2000));
+            t.Wait(1000);
+            _output.WriteLine($"Task A completed: {t.IsCompleted}, Status: {t.Status}");
+
+            if (!t.IsCompleted)
+                _output.WriteLine("Timed out before task completed.");
+        }
 
 
         //create continuation tasks
+        [Fact]
+        public void ContinuationWithATask()
+        {
+            Task<DayOfWeek> t = Task.Run(() => DateTime.Today.DayOfWeek);
 
-        //spawn threads by using TreadPool
+            //Executes after the 't' task completes with output value being pushed into the Action
+            t.ContinueWith(a => _output.WriteLine(a.Result.ToString()));
+        }
+        [Fact]
+        public void ContinuationWithATaskMultipleLinesToExecute()
+        {
+            Task<DayOfWeek> t = Task.Run(() => DateTime.Today.DayOfWeek);
+            t.ContinueWith(a =>
+            {
+                _output.WriteLine(a.Result.ToString());
+                _output.WriteLine($"Today is {a.Result.ToString()}");
+            });
+        }
+
+        //spawn threads by using ThreadPool
+        [Fact] //https://msdn.microsoft.com/en-us/library/system.threading.threadpool(v=vs.110).aspx
+        public void UsingThreadPoolToSpawnAThread()
+        {
+            // Queue the task.
+            ThreadPool.QueueUserWorkItem(ThreadProc);
+            _output.WriteLine("Main thread does some work, then sleeps.");
+            Thread.Sleep(1000);
+
+            _output.WriteLine("Main thread exits.");
+        }
+
+        // This thread procedure performs the task.
+        static void ThreadProc(Object stateInfo)
+        {
+            // No state object was passed to QueueUserWorkItem, so stateInfo is null.
+            Console.WriteLine("Hello from the thread pool.");
+        }
 
         //unblock the UI
+        [Fact]
+        public async Task UnblockingUIThread()
+        {
+            // The await causes the handler to return immediately.
+            await Task.Run(() => ComputeNextMove());
+            // Now update the UI with the results.
+            // ...
+        }
+
+        private async Task ComputeNextMove()
+        {
+            // Perform background work here.
+            // Don't directly access UI elements from this method.
+        }
 
         //use async and await
+        [Fact]
+        public async Task UseAsyncAndAwaitToGetWebpage()
+        {
+            _output.WriteLine(await GetGoogleHomepageAsync());
+        }
+        private async Task<string> GetGoogleHomepageAsync()
+        {
+            HttpClient client = new HttpClient();
+            var task = client.GetStringAsync("https://google.com");
+
+            return await task;
+        }
 
         //manage data using concurrent collections
+        [Fact]
+        public void UsingConcurrentCollections()
+        {
+            int NUMITEMS = 64;
+            int initialCapacity = 101;
+            int numProcs = Environment.ProcessorCount;
+            int concurrencyLevel = numProcs * 2;
+
+            ConcurrentDictionary<int, int> cd = new ConcurrentDictionary<int, int>(concurrencyLevel, initialCapacity);
+
+            for (int i = 0; i < NUMITEMS; i++) cd[i] = i * i;
+
+            _output.WriteLine("The square of 23 is {0} (should be {1})", cd[23], 23 * 23);
+        }
 
         private void ProcessItem(string item) { Thread.Sleep(1); }
         private List<string> GetItemsCollection(int size = 100, bool displayItems = false)
@@ -174,7 +289,7 @@ namespace CSharpExamPractice.ManageProgramFlow
             }
 
             if (displayItems)
-                _output.WriteLine("End of item list."); 
+                _output.WriteLine("End of item list.");
             return items;
         }
         private void DisplayTimeSpanOutput(DateTime startTime, DateTime endTime, string processingType = "Parallel")
