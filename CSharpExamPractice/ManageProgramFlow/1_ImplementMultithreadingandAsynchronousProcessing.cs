@@ -11,7 +11,7 @@ using System.Net.Http;
 
 namespace CSharpExamPractice.ManageProgramFlow
 {
-    [Trait("Manage Program Flow", "Multitheading/asynchronous")]
+    [Trait("1) Manage Program Flow", "Multitheading/asynchronous")]
     public class ImplementMultithreadingandAsynchronousProcessing
     {
         //Disclaimer these aren't unit test, they are methods demostrating program flow!
